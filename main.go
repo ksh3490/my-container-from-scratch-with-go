@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"syscall"
 )
 
@@ -38,6 +41,8 @@ func run() {
 func child() {
 	fmt.Printf("Running %v as PID %d\n", os.Args[2:], os.Getpid())
 
+	cg()
+
 	syscall.Sethostname([]byte("my-container"))
 	must(syscall.Chdir("/"))
 	must(syscall.Mount("proc", "proc", "proc", 0, ""))
@@ -49,6 +54,13 @@ func child() {
 
 	must(cmd.Run())
 	syscall.Unmount("proc", 0)
+}
+
+func cg() {
+	pids := "/sys/fs/cgroup/pids"
+	os.Mkdir(filepath.Join(pids, "my-container"), 0755)
+	must(ioutil.WriteFile(filepath.Join(pids, "my-container/pids.max"), []byte("20"), 0700))
+	must(ioutil.WriteFile(filepath.Join(pids, "my-container/cgroup.procs"), []byte(strconv.Itoa(os.Getgid())), 0700))
 }
 
 func must(err error) {
